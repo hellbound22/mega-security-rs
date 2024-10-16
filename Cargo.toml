@@ -9,4 +9,5 @@ pbkdf2 = "0.12.2"
 hmac = "0.13.0-pre.4"  
 sha2 = "0.10"  
 aes-gcm = "0.10.3"
+thiserror = "1.0.64"
 
