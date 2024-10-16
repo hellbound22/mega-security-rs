@@ -7,6 +7,8 @@ use aes::cipher::{
     BlockEncrypt, KeyInit, generic_array::GenericArray,
 };
 
+use crate::PBKDF2_ITER_NUM;
+
 #[derive(Debug)]
 pub struct Client {
     id: String,
@@ -37,8 +39,8 @@ impl Client {
 
         let salt_hash = hasher.finalize();
 
-        let mut derived_key = [0u8; 32];
-        pbkdf2_hmac::<Sha512>(password.as_bytes(), &salt_hash, 100000, &mut derived_key);
+        let derived_key = _compute_derived_key(&salt_hash, password);
+
         let first_half = &derived_key[0..16];
         let second_half = &derived_key[17..32];
 
@@ -59,4 +61,38 @@ impl Client {
             hashed_auth_key: hashed_auth_key.to_vec(),
         }
     }
+}
+
+
+#[derive(Debug, Default)]
+pub struct AuthClient {
+    pub email: String,
+    password: String,
+    salt: Option<Vec<u8>>,
+    derived_key: Option<Vec<u8>>,
+}
+
+impl AuthClient {
+    pub fn new_from_creds(email: &str, password: &str) -> Self {
+        Self {
+            email: email.to_owned(),
+            password: password.to_owned(),
+            ..Default::default()
+        }
+    }
+
+    pub fn compute_derived_key(&mut self, salt: &[u8]) {
+        self.salt = Some(_compute_derived_key(salt, &self.password));
+        self.derived_key = Some(self.salt.as_deref().unwrap()[..16].to_vec())
+    }
+
+    pub fn derived_key(&self) -> &Option<Vec<u8>> {
+        &self.derived_key
+    }
+}
+
+fn _compute_derived_key(salt_hash: &[u8], password: &str) -> Vec<u8> {
+    let mut derived_key = [0u8; 32];
+    pbkdf2_hmac::<Sha512>(password.as_bytes(), &salt_hash, PBKDF2_ITER_NUM, &mut derived_key);
+    derived_key.to_vec()
 }
