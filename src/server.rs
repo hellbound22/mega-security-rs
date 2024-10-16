@@ -1,4 +1,4 @@
-use crate::{errors::ServerError, utils::_compute_derived_key, Client};
+use crate::{errors::ServerError, utils::_salt, Client};
 
 use std::collections::HashMap;
 
@@ -15,16 +15,26 @@ impl Server {
             ..Default::default()
         }
     }
-    // TODO: populate server clients
 
-    pub fn get_salt_from_id(&self, id: &str, password: &str) -> Result<Vec<u8>, ServerError> {
+    // TODO: this needs to return a confirmation token
+    pub fn register_client(&mut self, client: &Client) -> Result<(), ServerError> {
+        if let Some(_) = self.clients_registered.get(&client.id) {
+            return Err(ServerError::ClientAlreadyRegistred(client.id.to_owned()))
+        }
+
+        self.clients_registered.insert(client.id.to_owned(), client.clone());
+
+        Ok(())
+    }
+
+    pub fn get_salt_from_id(&self, id: &str) -> Result<Vec<u8>, ServerError> {
         let client = if let Some(c) = self.clients_registered.get(id) { c } 
             else { return Err(ServerError::ClientNotFound(id.to_owned()))};
         
-        Ok(_compute_derived_key(client.random_number(), password))
+        Ok(_salt(id, client.random_number()))
     }
 
-    pub fn auth_client(&self, id: &str, autentication_key: &[u8; 16]) -> Result<(), ServerError>{
+    pub fn auth_client(&self, id: &str, autentication_key: &[u8]) -> Result<(), ServerError>{
         let mut auth_key_hasher = Sha256::new();
         auth_key_hasher.update(autentication_key);
         let hashed_auth_key = &auth_key_hasher.finalize()[..16];

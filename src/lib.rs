@@ -4,5 +4,6 @@ pub mod utils;
 pub mod errors;
 
 pub use client::*;
+pub use server::*;
 
 pub const PBKDF2_ITER_NUM: u32 = 100000;

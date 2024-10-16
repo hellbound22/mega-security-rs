@@ -6,13 +6,13 @@ use aes::cipher::{
     BlockEncrypt, KeyInit, generic_array::GenericArray,
 };
 
-use crate::utils::_compute_derived_key;
+use crate::utils::{_compute_derived_key, _salt};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
-    id: String,
+    pub id: String,
     random_number: Vec<u8>,
-    encryped_master_key: Vec<u8>,
+    _encryped_master_key: Vec<u8>,
     hashed_auth_key: Vec<u8>,
 }
 
@@ -26,19 +26,9 @@ impl Client {
         let mut random_value = [0u8;16];
         rng.fill_bytes(&mut random_value);
 
-        let mut hasher = Sha256::new();
-        let mut padding = vec!['P' as u8; 200 - id.len()];
+        let salt = _salt(id, &random_value);
 
-        let mut salt: Vec<u8> = Vec::new();
-        salt.append(&mut id.as_bytes().to_vec());
-        salt.append(&mut padding);
-        salt.append(&mut random_value.to_vec());
-                
-        hasher.update(&salt);
-
-        let salt_hash = hasher.finalize();
-
-        let derived_key = _compute_derived_key(&salt_hash, password);
+        let derived_key = _compute_derived_key(&salt, password);
 
         let first_half = &derived_key[0..16];
         let second_half = &derived_key[17..32];
@@ -56,7 +46,7 @@ impl Client {
         Self {
             id: id.to_owned(),
             random_number: random_value.to_vec(),
-            encryped_master_key: aes_block_array.as_slice().to_vec(),
+            _encryped_master_key: aes_block_array.as_slice().to_vec(),
             hashed_auth_key: hashed_auth_key.to_vec(),
         }
     }
@@ -76,7 +66,8 @@ pub struct AuthClient {
     pub email: String,
     password: String,
     salt: Option<Vec<u8>>,
-    derived_key: Option<Vec<u8>>,
+    derived_encryption_key: Option<Vec<u8>>,
+    autentication_key: Option<Vec<u8>>,
 }
 
 impl AuthClient {
@@ -89,12 +80,14 @@ impl AuthClient {
     }
 
     pub fn compute_derived_key(&mut self, salt: &[u8]) {
-        self.salt = Some(_compute_derived_key(salt, &self.password));
-        self.derived_key = Some(self.salt.as_deref().unwrap()[..16].to_vec())
+        let derived_key = _compute_derived_key(salt, &self.password);
+        self.salt = Some(salt.to_vec());
+        self.derived_encryption_key = Some(derived_key[..16].to_vec());
+        self.autentication_key = Some(derived_key[17..32].to_vec());
     }
 
-    pub fn derived_key(&self) -> &Option<Vec<u8>> {
-        &self.derived_key
+    pub fn autentication_key(&self) -> &Option<Vec<u8>> {
+        &self.autentication_key
     }
 }
 
