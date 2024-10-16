@@ -1,18 +1,17 @@
 use rand::prelude::*;
 
-use pbkdf2::pbkdf2_hmac;
-use sha2::{Digest, Sha512, Sha256};
+use sha2::{Digest, Sha256};
 use aes_gcm::aes;
 use aes::cipher::{
     BlockEncrypt, KeyInit, generic_array::GenericArray,
 };
 
-use crate::PBKDF2_ITER_NUM;
+use crate::utils::_compute_derived_key;
 
 #[derive(Debug)]
 pub struct Client {
     id: String,
-    client_random_number: Vec<u8>,
+    random_number: Vec<u8>,
     encryped_master_key: Vec<u8>,
     hashed_auth_key: Vec<u8>,
 }
@@ -56,10 +55,18 @@ impl Client {
 
         Self {
             id: id.to_owned(),
-            client_random_number: random_value.to_vec(),
+            random_number: random_value.to_vec(),
             encryped_master_key: aes_block_array.as_slice().to_vec(),
             hashed_auth_key: hashed_auth_key.to_vec(),
         }
+    }
+
+    pub fn random_number(&self) -> &Vec<u8> {
+        &self.random_number
+    }
+
+    pub fn hashed_auth_key(&self) -> &Vec<u8> {
+        &self.hashed_auth_key
     }
 }
 
@@ -91,8 +98,3 @@ impl AuthClient {
     }
 }
 
-fn _compute_derived_key(salt_hash: &[u8], password: &str) -> Vec<u8> {
-    let mut derived_key = [0u8; 32];
-    pbkdf2_hmac::<Sha512>(password.as_bytes(), &salt_hash, PBKDF2_ITER_NUM, &mut derived_key);
-    derived_key.to_vec()
-}
