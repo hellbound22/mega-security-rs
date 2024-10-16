@@ -63,7 +63,7 @@ impl Client {
 
 #[derive(Debug, Default)]
 pub struct AuthClient {
-    pub email: String,
+    pub id: String,
     password: String,
     salt: Option<Vec<u8>>,
     derived_encryption_key: Option<Vec<u8>>,
@@ -71,9 +71,9 @@ pub struct AuthClient {
 }
 
 impl AuthClient {
-    pub fn new_from_creds(email: &str, password: &str) -> Self {
+    pub fn new_from_creds(id: &str, password: &str) -> Self {
         Self {
-            email: email.to_owned(),
+            id: id.to_owned(),
             password: password.to_owned(),
             ..Default::default()
         }

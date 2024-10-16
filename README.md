@@ -8,7 +8,7 @@ for usage example check `tests/auth.rs`
 
 ### TODO
 - [ ] use ECB logic to encrypt blocks 
-- [ ] return a Mega-like confirmation token after register
+- [x] return a Mega-like confirmation token after register
 
 ### Some notes
 - Mega does check for password security, this crate does not. I leave for whomever implements this crate to define what is a 'good password' or not.
