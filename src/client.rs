@@ -17,7 +17,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new_from_creds(id: &str, password: &str) -> Self {
+    pub fn new_from_creds(id: &str, password: &str, domain: Option<&str>) -> Self {
         let mut rng = rand::thread_rng();
 
         let mut master_key = [0u8;16];
@@ -26,7 +26,11 @@ impl Client {
         let mut random_value = [0u8;16];
         rng.fill_bytes(&mut random_value);
 
-        let salt = _salt(id, &random_value);
+        let salt = if let Some(d) = domain { 
+            _salt(d, &random_value)
+        } else {
+            _salt(id, &random_value)
+        };
 
         let derived_key = _compute_derived_key(&salt, password);
 
