@@ -1,5 +1,11 @@
 [package]
 name = "mega-security-rs"
+description = "An implementation of Mega's security whitepaper"
+repository = "https://github.com/hellbound22/mega-security-rs"
+authors = ["Rodrigo Mauricio <rodrigomauricio@protonmail.com>"]
+license = "MIT"
+keywords = ["mega", "auth", "session", "security", "whitepaper"]
+categories = ["authentication", "algorithms", "cryptography", "web-programming", "authentication"]
 version = "0.1.0"
 edition = "2021"
 
