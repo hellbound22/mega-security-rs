@@ -1,4 +1,4 @@
-use crate::{errors::ServerError, utils::_salt, Client};
+use crate::{errors::ServerError, utils::_salt, ClientRegistration};
 
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 #[derive(Debug, Default)]
 pub struct Server {
     confirm_code: Option<String>,
-    clients_registered: HashMap<String, Client>,
+    clients_registered: HashMap<String, ClientRegistration>,
 }
 
 impl Server {
@@ -21,7 +21,7 @@ impl Server {
     }
 
     // TODO: this needs to return a confirmation token
-    pub fn register_client(&mut self, client: &Client) -> Result<String, ServerError> {
+    pub fn register_client(&mut self, client: &ClientRegistration) -> Result<String, ServerError> {
         if let Some(_) = self.clients_registered.get(&client.id) {
             return Err(ServerError::ClientAlreadyRegistred(client.id.to_owned()))
         }

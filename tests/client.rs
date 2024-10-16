@@ -1,6 +1,6 @@
-use mega_security_rs::Client;
+use mega_security_rs::ClientRegistration;
 
 #[test]
 fn new_client() {
-    let _client = Client::new_from_creds("test.com", "12345", None);
+    let _client = ClientRegistration::new_from_creds("test.com", "12345", None);
 }

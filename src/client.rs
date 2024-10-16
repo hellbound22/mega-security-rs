@@ -9,14 +9,14 @@ use aes::cipher::{
 use crate::utils::{_compute_derived_key, _salt};
 
 #[derive(Debug, Clone)]
-pub struct Client {
+pub struct ClientRegistration {
     pub id: String,
     random_number: Vec<u8>,
     _encryped_master_key: Vec<u8>,
     hashed_auth_key: Vec<u8>,
 }
 
-impl Client {
+impl ClientRegistration {
     pub fn new_from_creds(id: &str, password: &str, domain: Option<&str>) -> Self {
         let mut rng = rand::thread_rng();
 

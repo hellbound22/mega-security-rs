@@ -1,11 +1,11 @@
-use mega_security_rs::{errors::ServerError, AuthClient, Client, Server};
+use mega_security_rs::{errors::ServerError, AuthClient, ClientRegistration, Server};
 
 #[test]
 fn full_process_correct() {
     let id = "test.com";
     let pssw = "12345";
 
-    let client = Client::new_from_creds(id, pssw, None);
+    let client = ClientRegistration::new_from_creds(id, pssw, None);
     let mut server = Server::new(None);
     assert!(server.register_client(&client).is_ok());
 
@@ -23,7 +23,7 @@ fn auth_failure_pssw() {
     let pssw = "12345";
     let wrong_pssw = "67890";
 
-    let client = Client::new_from_creds(id, pssw, None);
+    let client = ClientRegistration::new_from_creds(id, pssw, None);
     let mut server = Server::new(None);
 
     assert!(server.register_client(&client).is_ok());
@@ -43,7 +43,7 @@ fn auth_failure_email() {
     let pssw = "12345";
     let wrong_id = "wrong.net";
 
-    let client = Client::new_from_creds(id, pssw, None);
+    let client = ClientRegistration::new_from_creds(id, pssw, None);
     let mut server = Server::new(None);
 
     assert!(server.register_client(&client).is_ok());
