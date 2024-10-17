@@ -6,6 +6,9 @@ fn full_process_correct() {
     let pssw = "12345";
 
     let client = ClientRegistration::new_from_creds(id, pssw, None);
+    assert!(client.is_ok());
+    let client = client.unwrap();
+
     let mut server = Server::new(None);
     assert!(server.register_client(&client).is_ok());
 
@@ -36,6 +39,9 @@ fn auth_failure_pssw() {
     let wrong_pssw = "67890";
 
     let client = ClientRegistration::new_from_creds(id, pssw, None);
+    assert!(client.is_ok());
+    let client = client.unwrap();
+
     let mut server = Server::new(None);
 
     assert!(server.register_client(&client).is_ok());
@@ -56,6 +62,9 @@ fn auth_failure_email() {
     let wrong_id = "wrong.net";
 
     let client = ClientRegistration::new_from_creds(id, pssw, None);
+    assert!(client.is_ok());
+    let client = client.unwrap();
+
     let mut server = Server::new(None);
 
     assert!(server.register_client(&client).is_ok());

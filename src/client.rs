@@ -15,7 +15,7 @@ pub struct ClientRegistration {
 }
 
 impl ClientRegistration {
-    pub fn new_from_creds(id: &str, password: &str, domain: Option<&str>) -> Self {
+    pub fn new_from_creds(id: &str, password: &str, domain: Option<&str>) -> Result<Self, ClientError> {
         let mut rng = rand::thread_rng();
 
         let mut master_key = [0u8;16];
@@ -39,15 +39,15 @@ impl ClientRegistration {
         auth_key_hasher.update(second_half);
         let hashed_auth_key = &auth_key_hasher.finalize()[..16];
 
-        let (encrypted_keys, rsa_public_key) = KeysPayload::new(&master_key, &derived_encryption_key);
+        let (encrypted_keys, rsa_public_key) = KeysPayload::new(&master_key, &derived_encryption_key)?;
 
-        Self {
+        Ok(Self {
             id: id.to_owned(),
             random_number: random_value.to_vec(),
             hashed_auth_key: hashed_auth_key.to_vec(),
             encrypted_keys,
             rsa_public_key,
-        }
+        })
     }
 
 
@@ -93,10 +93,22 @@ impl AuthClient {
     }
 
     pub fn decrypt_keys(&mut self, mut encrypted_keys: KeysPayload, session_id_enc: SessionIdEncrypted) -> Result<(), ClientError> {
-        self.decrypted_keys = 
-            Some(KeysDecrypted::from_encrypted(&mut encrypted_keys, self.derived_encryption_key.as_deref().unwrap())?);
+        let dek = if let Some(dek) = &self.derived_encryption_key { dek } 
+            else { return Err( ClientError::KeyNotPresent("Derived Encryption Key".to_owned())) } ;
 
-        let pk = self.decrypted_keys.as_ref().unwrap().rsa.clone();
+
+        self.decrypted_keys = 
+            Some(
+                KeysDecrypted::from_encrypted(
+                    &mut encrypted_keys, 
+                    dek
+                )?
+            );
+
+        let uneck = if let Some(uneck) = &self.decrypted_keys { uneck } 
+            else { return Err( ClientError::KeyNotPresent("decrypted keys".to_owned())) } ;
+
+        let pk = uneck.rsa.clone();
         self.session = Some(
             SessionId::from_encrypted(
                 session_id_enc, 

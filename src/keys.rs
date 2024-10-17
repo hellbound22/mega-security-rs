@@ -16,15 +16,18 @@ pub struct KeysPayload {
 }
 
 impl KeysPayload {
-    pub fn new(master_key: &[u8], derived_encryption_key: &[u8]) -> (Self, RsaPublicKey) {
+    pub fn new(master_key: &[u8], derived_encryption_key: &[u8]) -> Result<(Self, RsaPublicKey), ClientError> {
         let mut rng = rand::thread_rng();
 
         let aes_master_key_array = GenericArray::clone_from_slice(master_key);
         
         // RSA
-        let rsa_priv_key = RsaPrivateKey::new(&mut rng, RSA_LENGTH).expect("failed to generate a key");
+        let rsa_priv_key = if let Ok(pk) = RsaPrivateKey::new(&mut rng, RSA_LENGTH) { pk } 
+            else { return Err(ClientError::RsaKeyGenerationFailed) };
         let rsa_pub_key = RsaPublicKey::from(&rsa_priv_key);
-        let rsa_encoded = rsa_priv_key.to_pkcs8_der().unwrap();
+        let rsa_encoded = if let Ok(der) = rsa_priv_key.to_pkcs8_der() {
+            der
+        } else { return Err(ClientError::RsaKeyEncodeFailed) };
 
         let rsa_ct = Aes128EcbEnc::new(&aes_master_key_array)
             .encrypt_padded_vec_mut::<Pkcs7>(&mut rsa_encoded.as_bytes());
@@ -36,10 +39,10 @@ impl KeysPayload {
         let master_ct = Aes128EcbEnc::new(&aes_derived_enc_key_array)
             .encrypt_padded_vec_mut::<Pkcs7>(&mut master_key_c);
 
-        (Self {
+        Ok((Self {
             rsa: rsa_ct.to_vec(),
             master: master_ct.to_vec(),
-        }, rsa_pub_key)
+        }, rsa_pub_key))
     }
 
 }
@@ -69,7 +72,9 @@ impl KeysDecrypted {
                 return Err(ClientError::FailureToDecrypt);
         };
 
-        let rsa = RsaPrivateKey::from_pkcs8_der(&rsa).unwrap();
+        let rsa = if let Ok(pk) = RsaPrivateKey::from_pkcs8_der(&rsa) {
+            pk
+        } else { return Err(ClientError::RsaKeyDecodeFailed) };
         let master = master.to_vec();
 
         Ok(Self { rsa, master })

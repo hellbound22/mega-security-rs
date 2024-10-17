@@ -17,5 +17,4 @@ for usage example check `tests/auth.rs`
 ### TODOs
 - [ ] Ephemeral Accounts
 - [ ] More tests
-- [ ] Error handle some missing functions
 - [ ] Data encryption
