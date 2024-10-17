@@ -12,3 +12,10 @@ for usage example check `tests/auth.rs`
 - The server uses a `HashMap<String, Client>` to store registered users. Ideally you would code your own Server, or send a PR making the server be a trait of sorts.
 - This crate does not YET implement file or data encryption of any kind.
 - The whitepaper does not elaborate on how sessions are stored or managed, The implementation seen on `Server` is just one of mine
+
+
+### TODOs
+- [ ] Ephemeral Accounts
+- [ ] More tests
+- [ ] Error handle some missing functions
+- [ ] Data encryption
