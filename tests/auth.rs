@@ -14,7 +14,12 @@ fn full_process_correct() {
 
     non_auth_client.compute_derived_key(&non_auth_client_salt_given.unwrap());
 
-    assert!(server.auth_client(id, &non_auth_client.autentication_key().as_ref().unwrap()).is_ok());
+    let keys = server.auth_client(id, &non_auth_client.autentication_key().as_ref().unwrap());
+    assert!(keys.is_ok());
+    let keys = keys.unwrap();
+
+    let decryption_res = non_auth_client.decrypt_keys(keys);
+    assert!(decryption_res.is_ok())
 }
 
 #[test]

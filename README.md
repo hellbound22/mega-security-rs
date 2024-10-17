@@ -7,12 +7,6 @@ Note: This implementation is for educational and research purposes only. No copy
 for usage example check `tests/auth.rs`
 
 ### TODO
-- [x] Client needs to be able to change the id to generate salt to whatever string
-- [ ] Client creates
-    - RSA key pair 2048bits (sharing folders/files)
-    - Ed25519 key pair 256bits (signature keys)
-    - Curve25519 key pair (chat)
-    All private keys are encrypted using the master key using AES-ECB and stored by the Server
 - [ ] Server sends back Encypted Master Key, Encrypted Private RSA key, Encypted Session ID
 - [ ] Client decrypts the Encypted Master Key with the Derived Encryption Key
     - [ ] Master key is used to decrypt RSA Private Key
@@ -22,6 +16,6 @@ for usage example check `tests/auth.rs`
 
 ### Some notes
 - Mega does check for password security, this crate does not. I leave for whomever implements this crate to define what is a 'good password' or not.
-- Mega uses 'mega.nz' to generate salt. As noted in the whitepaper, ideally this value would be an user identifier, so thats whats being used in this code.
+- Mega uses 'mega.nz' to generate salt. As noted in the whitepaper, ideally this value would be an user identifier, so thats whats being used in this code. You can provide a 'domain' when creating the client though;
 - The server uses a `HashMap<String, Client>` to store registered users. Ideally you would code your own Server, or send a PR making the server be a trait of sorts.
-- This crate does not YET implement file or data encryption of any kind. It is planned though.
+- This crate does not YET implement file or data encryption of any kind.

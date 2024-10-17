@@ -1,4 +1,4 @@
-use crate::{errors::ServerError, utils::_salt, ClientRegistration};
+use crate::{errors::ServerError, keys::KeysPayload, utils::_salt, ClientRegistration};
 
 use std::collections::HashMap;
 
@@ -65,7 +65,7 @@ impl Server {
         Ok(_salt(id, client.random_number()))
     }
 
-    pub fn auth_client(&self, id: &str, autentication_key: &[u8]) -> Result<(), ServerError>{
+    pub fn auth_client(&self, id: &str, autentication_key: &[u8]) -> Result<KeysPayload, ServerError>{
         let mut auth_key_hasher = Sha256::new();
         auth_key_hasher.update(autentication_key);
         let hashed_auth_key = &auth_key_hasher.finalize()[..16];
@@ -73,7 +73,8 @@ impl Server {
         let client = if let Some(c) = self.clients_registered.get(id) { c } 
             else { return Err(ServerError::ClientNotFound(id.to_owned()))};
 
-        if client.hashed_auth_key() == hashed_auth_key { Ok(()) } 
-            else { return Err(ServerError::AutenticationFailed(id.to_owned())) }
+        if client.hashed_auth_key() == hashed_auth_key { Ok(client.encrypted_keys.clone()) } 
+            else { Err(ServerError::AutenticationFailed(id.to_owned())) }
+        
     } 
 }

@@ -9,3 +9,9 @@ pub enum ServerError {
     #[error("client with id `{0}` already exists")]
     ClientAlreadyRegistred(String),
 }
+
+#[derive(Error, Debug)]
+pub enum ClientError {
+    #[error("could not decrypt keys")]
+    FailureToDecrypt,
+}
