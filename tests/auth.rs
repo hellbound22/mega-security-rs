@@ -16,10 +16,17 @@ fn full_process_correct() {
 
     let keys = server.auth_client(id, &non_auth_client.autentication_key().as_ref().unwrap());
     assert!(keys.is_ok());
-    let keys = keys.unwrap();
+    let (keys, session_id_enc) = keys.unwrap();
+    
+    // At this point in the exchange, the session is already established as far as the server is
+    // concerned 
+    let mut authed_client = non_auth_client;
 
-    let decryption_res = non_auth_client.decrypt_keys(keys);
-    assert!(decryption_res.is_ok())
+    let decryption_res = authed_client.decrypt_keys(keys, session_id_enc);
+    assert!(decryption_res.is_ok());
+
+    let check = server.check_session_id(&authed_client.session.unwrap());
+    assert!(check.is_ok())
 }
 
 #[test]

@@ -8,6 +8,8 @@ pub enum ServerError {
     AutenticationFailed(String),
     #[error("client with id `{0}` already exists")]
     ClientAlreadyRegistred(String),
+    #[error("session id does not exist")]
+    SessionIdNotFound,
 }
 
 #[derive(Error, Debug)]

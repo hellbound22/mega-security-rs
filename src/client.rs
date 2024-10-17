@@ -1,14 +1,16 @@
 use rand::prelude::*;
 
+use rsa::RsaPublicKey;
 use sha2::{Digest, Sha256};
 
-use crate::{errors::ClientError, keys::{KeysDecrypted, KeysPayload}, utils::{_compute_derived_key, _salt}};
+use crate::{errors::ClientError, keys::{KeysDecrypted, KeysPayload}, session::{SessionId, SessionIdEncrypted}, utils::{_compute_derived_key, _salt}};
 
 #[derive(Debug, Clone)]
 pub struct ClientRegistration {
     pub id: String,
     random_number: Vec<u8>,
     hashed_auth_key: Vec<u8>,
+    pub rsa_public_key: RsaPublicKey,
     pub encrypted_keys: KeysPayload,
 }
 
@@ -37,13 +39,14 @@ impl ClientRegistration {
         auth_key_hasher.update(second_half);
         let hashed_auth_key = &auth_key_hasher.finalize()[..16];
 
-        let encrypted_keys = KeysPayload::new(&master_key, &derived_encryption_key);
+        let (encrypted_keys, rsa_public_key) = KeysPayload::new(&master_key, &derived_encryption_key);
 
         Self {
             id: id.to_owned(),
             random_number: random_value.to_vec(),
             hashed_auth_key: hashed_auth_key.to_vec(),
             encrypted_keys,
+            rsa_public_key,
         }
     }
 
@@ -66,6 +69,7 @@ pub struct AuthClient {
     derived_encryption_key: Option<Vec<u8>>,
     autentication_key: Option<Vec<u8>>,
     decrypted_keys: Option<KeysDecrypted>,
+    pub session: Option<SessionId>,
 }
 
 impl AuthClient {
@@ -88,9 +92,16 @@ impl AuthClient {
         &self.autentication_key
     }
 
-    pub fn decrypt_keys(&mut self, encrypted_keys: KeysPayload) -> Result<(), ClientError> {
+    pub fn decrypt_keys(&mut self, mut encrypted_keys: KeysPayload, session_id_enc: SessionIdEncrypted) -> Result<(), ClientError> {
         self.decrypted_keys = 
-            Some(KeysDecrypted::from_encrypted(encrypted_keys, self.derived_encryption_key.as_deref().unwrap())?);
+            Some(KeysDecrypted::from_encrypted(&mut encrypted_keys, self.derived_encryption_key.as_deref().unwrap())?);
+
+        let pk = self.decrypted_keys.as_ref().unwrap().rsa.clone();
+        self.session = Some(
+            SessionId::from_encrypted(
+                session_id_enc, 
+                &pk
+            ));
         Ok(())
     }
 }

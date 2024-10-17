@@ -1,4 +1,4 @@
-use crate::{errors::ServerError, keys::KeysPayload, utils::_salt, ClientRegistration};
+use crate::{errors::ServerError, keys::KeysPayload, session::{SessionId, SessionIdEncrypted}, utils::_salt, ClientRegistration};
 
 use std::collections::HashMap;
 
@@ -10,6 +10,7 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 pub struct Server {
     confirm_code: Option<String>,
     clients_registered: HashMap<String, ClientRegistration>,
+    sessions: Vec<SessionId>,
 }
 
 impl Server {
@@ -65,7 +66,7 @@ impl Server {
         Ok(_salt(id, client.random_number()))
     }
 
-    pub fn auth_client(&self, id: &str, autentication_key: &[u8]) -> Result<KeysPayload, ServerError>{
+    pub fn auth_client(&mut self, id: &str, autentication_key: &[u8]) -> Result<(KeysPayload, SessionIdEncrypted), ServerError>{
         let mut auth_key_hasher = Sha256::new();
         auth_key_hasher.update(autentication_key);
         let hashed_auth_key = &auth_key_hasher.finalize()[..16];
@@ -73,8 +74,19 @@ impl Server {
         let client = if let Some(c) = self.clients_registered.get(id) { c } 
             else { return Err(ServerError::ClientNotFound(id.to_owned()))};
 
-        if client.hashed_auth_key() == hashed_auth_key { Ok(client.encrypted_keys.clone()) } 
+        let (enc_session_id, token) = SessionIdEncrypted::new(&client.rsa_public_key);
+
+        self.sessions.push(token);
+
+        if client.hashed_auth_key() == hashed_auth_key { Ok((client.encrypted_keys.clone(), enc_session_id)) } 
             else { Err(ServerError::AutenticationFailed(id.to_owned())) }
-        
     } 
+
+    pub fn check_session_id(&self, given_session_id: &SessionId) -> Result<(), ServerError>{
+        if self.sessions.contains(&given_session_id) {
+            Ok(())
+        } else {
+            Err(ServerError::SessionIdNotFound)
+        }
+    }
 }
