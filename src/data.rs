@@ -13,10 +13,42 @@ type Aes128Ccm = Ccm<Aes128, U16, U8>;
 type Aes128EcbEnc = ecb::Encryptor<aes::Aes128>;
 type Aes128EcbDec = ecb::Decryptor<aes::Aes128>;
 
+pub struct DataDecrypt;
+
+impl DataDecrypt {
+    pub fn decrypt(enc_data: DataEncrypt, master_key: &[u8]) -> Vec<u8> {
+        let mut data_key_ct = enc_data.data_key_ct.clone();
+        let data_key = Aes128EcbDec::new(&GenericArray::clone_from_slice(&master_key))
+            .decrypt_padded_vec_mut::<Pkcs7>(&mut data_key_ct).unwrap();
+
+        let (data_key, nonce) = deobfuscate_file_key(&data_key, &enc_data.condensed_mac);
+
+        let condensed_mac = enc_data.condensed_mac.clone();
+        let enc_data = enc_data.enc_data.clone();
+
+        let mut cipher = Aes128Ccm::new(&GenericArray::clone_from_slice(&data_key));
+        
+        let chunks = enc_data.chunks(16);
+        let mut res = Vec::new();
+
+        let nonce = Nonce::from_slice(&nonce);
+    
+        for blk in chunks {
+            let mut buf: Vec<u8> = Vec::new().into();
+            cipher.decrypt_in_place_detached(nonce, blk , &mut buf, condensed_mac.as_slice().into()).unwrap();
+            
+            res.push(blk.to_vec());
+        }
+        
+        res.into_iter().flatten().collect()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DataEncrypt{
-    enc_data: Vec<u8>,
-    data_key_ct: Vec<u8>,
+    pub enc_data: Vec<u8>,
+    pub data_key_ct: Vec<u8>,
+    pub condensed_mac: Vec<u8>,
 }
 
 impl DataEncrypt {
@@ -53,6 +85,7 @@ impl DataEncrypt {
             for (x, y) in condensed_mac.iter_mut().zip(tag.iter()) {
                 *x ^= y;
             }
+            //TODO: encrypt condensed_mac with AES-ECB
         }
 
 
@@ -65,33 +98,63 @@ impl DataEncrypt {
         Self{
             enc_data,
             data_key_ct,
+            condensed_mac: condensed_mac.to_vec(),
         }
     }
+}
+
+fn xor_slices(a: &[u8], b: &[u8]) -> Vec<u8> {
+    let mut v = Vec::new();
+    for (x, y) in a.iter().zip(b.iter()) {
+        v.push(x ^ y);
+    }
+    v 
 }
 
 fn obfuscate_file_key(
     file_key: [u8; 16],
     iv: [u8; 8],
     condensed_mac: [u8; 16],
-) -> [u8; 16] {
-    let mut obfuscated_key = [0u8; 16];
+) -> Vec<u8> {
+    let file_key_chunks: Vec<&[u8]> = file_key.chunks(4).into_iter().collect();
+    let iv_chunks: Vec<&[u8]> = iv.chunks(4).into_iter().collect();
+    let condensed_mac_chunks: Vec<&[u8]> = condensed_mac.chunks(4).into_iter().collect();
 
-    obfuscated_key[0] = file_key[0] ^ iv[0];
-    obfuscated_key[1] = file_key[1] ^ iv[1];
-    obfuscated_key[2] = file_key[2] ^ condensed_mac[0] ^ condensed_mac[1];
-    obfuscated_key[3] = file_key[3] ^ condensed_mac[2] ^ condensed_mac[3];
+    let xcm0 = xor_slices(condensed_mac_chunks[0], condensed_mac_chunks[1]);
+    let xcm1 = xor_slices(condensed_mac_chunks[2], condensed_mac_chunks[3]);
+    let k = vec![
+        xor_slices(file_key_chunks[0], iv_chunks[0]),
+        xor_slices(file_key_chunks[1], iv_chunks[1]),
+        xor_slices(file_key_chunks[2], xcm0.as_slice()),
+        xor_slices(file_key_chunks[3], xcm1.as_slice()),
+        iv_chunks[0].to_vec(),
+        iv_chunks[1].to_vec(),
+        xcm0,
+        xcm1,
+    ];
 
-    obfuscated_key[4] = iv[0];
-    obfuscated_key[5] = iv[1];
-    obfuscated_key[6] = condensed_mac[0] ^ condensed_mac[1];
-    obfuscated_key[7] = condensed_mac[2] ^ condensed_mac[3];
-
-    obfuscated_key[8] = iv[0];
-    obfuscated_key[9] = iv[1];
-    obfuscated_key[10] = condensed_mac[0];
-    obfuscated_key[11] = condensed_mac[1];
-    obfuscated_key[12] = condensed_mac[2];
-    obfuscated_key[13] = condensed_mac[3];
-
-    obfuscated_key
+    k.into_iter().flatten().collect()
 }
+
+fn deobfuscate_file_key(
+    obfuscated_key: &[u8],
+    condensed_mac: &[u8],
+) -> (Vec<u8>, Vec<u8>) {
+    let obfuscated_key_chunks: Vec<&[u8]> = obfuscated_key.chunks(4).into_iter().collect();
+    let condensed_mac_chunks: Vec<&[u8]> = condensed_mac.chunks(4).into_iter().collect();
+
+    let xcm0 = xor_slices(condensed_mac_chunks[0], condensed_mac_chunks[1]);
+    let xcm1 = xor_slices(condensed_mac_chunks[2], condensed_mac_chunks[3]);
+
+    let iv = vec![obfuscated_key_chunks[4].to_vec(), obfuscated_key_chunks[5].to_vec()];
+
+    let fk = vec![
+        xor_slices(&iv[0], obfuscated_key_chunks[0]),
+        xor_slices(&iv[1], obfuscated_key_chunks[1]),
+        xor_slices(&xcm0, obfuscated_key_chunks[2]),
+        xor_slices(&xcm1, obfuscated_key_chunks[3]),
+    ];
+
+    (fk.into_iter().flatten().collect(), iv.into_iter().flatten().collect())
+}
+
