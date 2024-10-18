@@ -19,3 +19,5 @@ thiserror = "1.0.64"
 base64 = "0.22.1"
 rsa = "0.9.6"
 ecb = { version = "0.1.2", features = ["alloc"] }
+aes = "0.8.4"
+ccm = "0.5.0"

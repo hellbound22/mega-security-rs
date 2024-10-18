@@ -4,6 +4,7 @@ pub mod utils;
 pub mod errors;
 pub mod keys;
 pub mod session;
+pub mod data;
 
 pub use client::*;
 pub use server::*;

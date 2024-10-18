@@ -18,3 +18,9 @@ for usage example check `tests/auth.rs`
 - [ ] Ephemeral Accounts
 - [ ] More tests
 - [ ] Data encryption
+
+
+- file key: 128 bits 
+- nonce: 64 random bits
+- files are split and encrypted with aes-ccm
+- nonce is encrypted for each chunk
