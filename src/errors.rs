@@ -16,6 +16,10 @@ pub enum ServerError {
 pub enum ClientError {
     #[error("could not decrypt keys")]
     FailureToDecrypt,
+    #[error("could not decrypt data")]
+    FailureToDecryptData,
+    #[error("could not encrypt data")]
+    FailureToEncryptData,
     
     #[error("could not decode RSA key")]
     RsaKeyDecodeFailed,

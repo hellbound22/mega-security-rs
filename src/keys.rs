@@ -50,7 +50,7 @@ impl KeysPayload {
 #[derive(Debug)]
 pub struct KeysDecrypted {
     pub rsa: RsaPrivateKey,
-    master: Vec<u8>,
+    pub master: Vec<u8>,
 }
 
 impl KeysDecrypted {

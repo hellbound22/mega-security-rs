@@ -68,7 +68,7 @@ pub struct AuthClient {
     salt: Option<Vec<u8>>,
     derived_encryption_key: Option<Vec<u8>>,
     autentication_key: Option<Vec<u8>>,
-    decrypted_keys: Option<KeysDecrypted>,
+    pub decrypted_keys: Option<KeysDecrypted>,
     pub session: Option<SessionId>,
 }
 

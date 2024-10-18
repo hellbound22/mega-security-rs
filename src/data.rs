@@ -8,6 +8,8 @@ use ccm::{
     Ccm, Nonce,
 };
 
+use crate::errors::ClientError;
+
 type Aes128Ccm = Ccm<Aes128, U16, U8>;
 
 type Aes128EcbEnc = ecb::Encryptor<aes::Aes128>;
@@ -16,10 +18,14 @@ type Aes128EcbDec = ecb::Decryptor<aes::Aes128>;
 pub struct DataDecrypt;
 
 impl DataDecrypt {
-    pub fn decrypt(enc_data: DataEncrypt, master_key: &[u8]) -> Vec<u8> {
-        let mut data_key_ct = enc_data.data_key_ct.clone();
-        let data_key = Aes128EcbDec::new(&GenericArray::clone_from_slice(&master_key))
-            .decrypt_padded_vec_mut::<Pkcs7>(&mut data_key_ct).unwrap();
+    pub fn decrypt(enc_data: DataEncrypt, master_key: &[u8]) -> Result<Vec<u8>, ClientError>{
+        let mut enc_key = enc_data.enc_key.clone();
+        let data_key = if let Ok(dk) = Aes128EcbDec::new(&GenericArray::clone_from_slice(&master_key))
+            .decrypt_padded_vec_mut::<Pkcs7>(&mut enc_key) {
+                dk
+            } else {
+                return Err(ClientError::FailureToDecrypt);
+            };
 
         let (data_key, nonce) = deobfuscate_file_key(&data_key, &enc_data.condensed_mac);
 
@@ -32,27 +38,34 @@ impl DataDecrypt {
         let mut res = Vec::new();
 
         let nonce = Nonce::from_slice(&nonce);
+
+        let mut condensed_mac = GenericArray::clone_from_slice(&condensed_mac);
     
         for blk in chunks {
+            Aes128EcbDec::new(&GenericArray::from_slice(master_key))
+                .decrypt_block_mut(&mut condensed_mac);
+
             let mut buf: Vec<u8> = Vec::new().into();
-            cipher.decrypt_in_place_detached(nonce, blk , &mut buf, condensed_mac.as_slice().into()).unwrap();
+            if let Err(_) = cipher.decrypt_in_place_detached(nonce, blk , &mut buf, &condensed_mac) {
+                return Err(ClientError::FailureToDecryptData);
+            };
             
             res.push(blk.to_vec());
         }
         
-        res.into_iter().flatten().collect()
+        Ok(res.into_iter().flatten().collect())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct DataEncrypt{
     pub enc_data: Vec<u8>,
-    pub data_key_ct: Vec<u8>,
+    pub enc_key: Vec<u8>,
     pub condensed_mac: Vec<u8>,
 }
 
 impl DataEncrypt {
-    pub fn new(data: &[u8], master_key: &[u8]) -> Self {
+    pub fn new(data: &[u8], master_key: &[u8; 16]) -> Result<Self, ClientError> {
         let mut rng = rand::thread_rng();
 
         let mut data_key = [0u8;16];
@@ -70,7 +83,8 @@ impl DataEncrypt {
         
         for blk in chunks {
             let mut buf: Vec<u8> = Vec::new().into();
-            let mac = cipher.encrypt_in_place_detached(nonce, blk , &mut buf).unwrap();
+            let mac = if let Ok(m) = cipher.encrypt_in_place_detached(nonce, blk , &mut buf) { m }
+            else { return Err(ClientError::FailureToEncryptData) };
             
             ct.push(blk.to_vec());
             mac_tags.push(mac.to_vec());
@@ -78,28 +92,30 @@ impl DataEncrypt {
 
         let enc_data = ct.into_iter().flatten().collect();
         
-        let mut condensed_mac = [0u8; 16];
+        let mut condensed_mac = GenericArray::clone_from_slice(&[0u8; 16]);
 
         for tag in mac_tags {
             assert_eq!(condensed_mac.len(), tag.len(), "Slices must have the same length");
             for (x, y) in condensed_mac.iter_mut().zip(tag.iter()) {
                 *x ^= y;
             }
-            //TODO: encrypt condensed_mac with AES-ECB
+
+            Aes128EcbEnc::new(&GenericArray::from_slice(master_key))
+                .encrypt_block_mut(&mut condensed_mac);
         }
 
 
         let iv: [u8; 8] = nonce.clone().into();
-        let mut obs_data_key = obfuscate_file_key(data_key, iv, condensed_mac);
+        let mut obs_data_key = obfuscate_file_key(data_key, iv, condensed_mac.as_slice());
 
-        let data_key_ct = Aes128EcbEnc::new(&GenericArray::clone_from_slice(&master_key))
+        let enc_key = Aes128EcbEnc::new(&GenericArray::from_slice(master_key))
             .encrypt_padded_vec_mut::<Pkcs7>(&mut obs_data_key);
 
-        Self{
+        Ok(Self{
             enc_data,
-            data_key_ct,
+            enc_key,
             condensed_mac: condensed_mac.to_vec(),
-        }
+        })
     }
 }
 
@@ -114,7 +130,7 @@ fn xor_slices(a: &[u8], b: &[u8]) -> Vec<u8> {
 fn obfuscate_file_key(
     file_key: [u8; 16],
     iv: [u8; 8],
-    condensed_mac: [u8; 16],
+    condensed_mac: &[u8],
 ) -> Vec<u8> {
     let file_key_chunks: Vec<&[u8]> = file_key.chunks(4).into_iter().collect();
     let iv_chunks: Vec<&[u8]> = iv.chunks(4).into_iter().collect();
